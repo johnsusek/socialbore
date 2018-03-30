@@ -1,0 +1,20 @@
+{
+  "name": "socialbore",
+  "version": "1.0.0",
+  "description": "A daemon to browse social networks for the user, and save posts it finds.",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "John Susek <john@declaredintent.com>",
+  "license": "ISC",
+  "dependencies": {
+    "lokijs": "^1.5.3",
+    "puppeteer": "^1.2.0"
+  },
+  "devDependencies": {
+    "eslint": "^4.19.1",
+    "eslint-config-airbnb-base": "^12.1.0",
+    "eslint-plugin-import": "^2.9.0"
+  }
+}
