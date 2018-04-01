@@ -11,38 +11,45 @@ function init() {
       autoload: true,
       autoloadCallback: () => {
         posts = db.getCollection('posts');
-
         if (posts === null) {
           posts = db.addCollection('posts', { indices: ['id'] });
         }
-
         resolve(db);
       }
     });
   });
 }
 
+// This gets called by the daemon, when it closes
 function finish() {
   db.saveDatabase();
+  db.close();
 }
 
-function onFacebookPostCreate(post) {
-  posts.insert(post);
+function recent() {
+  return posts
+    .chain()
+    .simplesort('dataset.timestamp')
+    .data();
 }
 
-function onFacebookPostUpdate(id, html, text) {
-  let post = posts.findOne({ id });
-  if (!post) return;
+function add(newPosts) {
+  newPosts.forEach(newPost => {
+    let existingPost = posts.findOne({ id: newPost.id });
 
-  post.html = html;
-  post.text = text;
-
-  posts.update(post);
+    if (existingPost) {
+      console.log('Updating post', newPost.id);
+      posts.update(newPost);
+    } else {
+      console.log('Adding post', newPost.id);
+      posts.add(newPost);
+    }
+  });
 }
 
 module.exports = {
+  add,
+  recent,
   init,
-  finish,
-  onFacebookPostCreate,
-  onFacebookPostUpdate
+  finish
 };

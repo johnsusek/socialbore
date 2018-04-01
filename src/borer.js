@@ -1,10 +1,11 @@
 const fs = require('fs');
-const postObserver = require('./postObserver');
-const borePosts = require('./borePosts');
+const observer = require('./observer');
+const { createPost, updatePost } = require('./builder');
 
 const username = process.env.SOCIALBORE_USERNAME;
 const password = process.env.SOCIALBORE_PASSWORD;
 
+let foundPosts = {};
 let lastRequest;
 
 async function prepare(page) {
@@ -18,16 +19,25 @@ async function prepare(page) {
   });
 
   // Uncomment this to see the console output of the embedded Chromium
-  // page.on('console', msg => console.log('PAGE LOG:', msg.text()));
+  page.on('console', msg => console.log('>>>', msg.text()));
 
-  // When the injected script starts noticing changes in the DOM with posts,
-  // it calls these functions, which is how these scripts communicate
-  page.exposeFunction('onFacebookPostCreate', borePosts.onFacebookPostCreate);
-  page.exposeFunction('onFacebookPostUpdate', borePosts.onFacebookPostUpdate);
+  page.exposeFunction('onFacebookPostCreate', (html, dataset, meta) => {
+    // This is where a raw element + metadata from data-ft becomes
+    // a post object
+    let post = createPost(html, dataset, meta);
+    foundPosts[post.id] = post;
+  });
 
-  // Start watching the DOM for changes, so we can extract data- attributes
-  // and text/html to build our post objects
-  postObserver.postObserver(page);
+  page.exposeFunction('onFacebookPostUpdate', (id, html, dataset) => {
+    // This is where a post object gets its text + html derived
+    // values
+    if (!foundPosts[id]) return;
+    let post = updatePost(foundPosts[id], html, dataset);
+    foundPosts[post.id] = post;
+  });
+
+  // Start watching the DOM for changes
+  observer.observe(page);
 
   // If there are saved cookies on the filesystem,
   // load them in so we don't have to login again
@@ -64,21 +74,26 @@ async function navigate(page) {
   fs.writeFileSync('cookies.json', JSON.stringify(cookies));
 }
 
-async function bore(page, browser) {
-  // Poll to see if there has been any network activity in the last 10 seconds,
-  // and if not, close this session
-  setInterval(async () => {
-    let timestamp = +new Date();
-    if (timestamp - lastRequest > 10000) {
-      borePosts.finish();
-      browser.close();
-      process.exit();
-    }
-  }, 1000);
+async function bore(page) {
+  return new Promise(async resolve => {
+    // We empty foundPosts now, since we don't need data from the previous run
+    foundPosts = {};
 
-  // Begin scrolling down the page, which will trigger new posts to load
-  await page.evaluate(() => {
-    setInterval(() => window.scrollBy(0, 10000), 100);
+    // Poll to see if there has been any network activity in the last 10 seconds,
+    // and if not, close this session
+    setInterval(async () => {
+      let timestamp = +new Date();
+      if (timestamp - lastRequest > 10000) {
+        // This is where we return the posts we've been building up
+        // back to the daemon
+        resolve(Object.values(foundPosts));
+      }
+    }, 1000);
+
+    // Begin scrolling down the page, which will trigger new posts to load
+    await page.evaluate(() => {
+      setInterval(() => window.scrollBy(0, 10000), 100);
+    });
   });
 }
 
