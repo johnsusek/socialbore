@@ -1,4 +1,4 @@
-const loki = require('lokijs');
+let loki = require('lokijs');
 
 let db;
 let posts;
@@ -30,16 +30,23 @@ function recent() {
   return posts
     .chain()
     .simplesort('dataset.timestamp')
+    .limit(50)
     .data();
 }
 
 function add(newPosts) {
   newPosts.forEach(newPost => {
+    if (!newPost.permalink) return;
+
     let existingPost = posts.findOne({ id: newPost.id });
 
     if (existingPost) {
-      console.log('Updating post', newPost.id);
-      posts.update(newPost);
+      existingPost.profiles = newPost.profiles;
+      existingPost.hovercards = newPost.hovercards;
+      existingPost.permalink = newPost.permalink;
+      existingPost.html = newPost.html;
+      existingPost.title = newPost.title;
+      posts.update(existingPost);
     } else {
       console.log('Adding post', newPost.id);
       posts.add(newPost);

@@ -1,9 +1,9 @@
-const fs = require('fs');
-const observer = require('./observer');
-const { createPost, updatePost } = require('./builder');
+let fs = require('fs');
+let observer = require('./observer');
+let { createPost, updatePost } = require('./builder');
 
-const username = process.env.SOCIALBORE_USERNAME;
-const password = process.env.SOCIALBORE_PASSWORD;
+let username = process.env.SOCIALBORE_USERNAME;
+let password = process.env.SOCIALBORE_PASSWORD;
 
 let foundPosts = {};
 let lastRequest;
@@ -19,7 +19,7 @@ async function prepare(page) {
   });
 
   // Uncomment this to see the console output of the embedded Chromium
-  page.on('console', msg => console.log('>>>', msg.text()));
+  // page.on('console', msg => console.log('>>>', msg.text()));
 
   page.exposeFunction('onFacebookPostCreate', (html, dataset, meta) => {
     // This is where a raw element + metadata from data-ft becomes
@@ -51,7 +51,9 @@ async function prepare(page) {
 }
 
 async function navigate(page) {
-  await page.goto('https://facebook.com/');
+  // ?sk=h_nor
+  // ?sk=h_chr
+  await page.goto('https://facebook.com/?sk=h_nor');
 
   // If the login form is on the page, fill it out
   if (
@@ -59,6 +61,21 @@ async function navigate(page) {
     (await page.$('#pass')) &&
     (await page.$('#loginbutton'))
   ) {
+    if (!username || !password) {
+      throw new Error(
+        'Please provide username and password using environment variables SOCIALBORE_USERNAME and SOCIALBORE_PASSWORD'
+      );
+    }
+
+    console.log('Logging in...');
+
+    // Empty the login form before trying to type into it
+    await page.evaluate(() => {
+      document.querySelector('#email').value = '';
+      document.querySelector('#pass').value = '';
+    });
+
+    // Type username/password into the login form
     await page.type('#email', username);
     await page.type('#pass', password);
 

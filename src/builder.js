@@ -1,5 +1,4 @@
-const cheerio = require('cheerio');
-const url = require('url');
+let cheerio = require('cheerio');
 
 function getPermalink($) {
   return $('abbr.timestamp')
@@ -7,43 +6,53 @@ function getPermalink($) {
     .attr('href');
 }
 
-function getHasExternalLinks($) {
-  let hasExternalLinks = false;
-
-  let externalLinks = $('a[href^="https://l.facebook.com/l.php"]');
-
-  externalLinks.each((i, externalLink) => {
-    // There is an external (link-shortened) url...
-    let urlParsed = url.parse($(externalLink).attr('href'));
-    let actualUrl = urlParsed.query.u;
-    if (actualUrl && !actualUrl.match(/(jpg|jpeg|gif|png|gifv|mp4)$/)) {
-      // ...and it isn't a link to an image/video, so mark the post
-      hasExternalLinks = true;
-    }
-  });
-
-  return hasExternalLinks;
-}
-
 function getProfiles($) {
   let profiles = [];
+
   $('a.profileLink').each((i, a) => {
-    if ($(a).text() && !profiles.includes($(a).text())) {
-      profiles.push($(a).text());
+    let text = $(a).text();
+
+    if (text && !profiles.includes(text)) {
+      profiles.push(text);
     }
   });
+
   return profiles;
 }
 
 function getHovercards($) {
   let hovercards = [];
+
   $('a[data-hovercard]').each((i, a) => {
-    if ($(a).text() && !hovercards.includes($(a).text())) {
-      hovercards.push($(a).text());
+    let text = $(a).text();
+
+    if (text && !hovercards.includes(text)) {
+      hovercards.push(text);
     }
   });
 
   return hovercards;
+}
+
+function getHtml($) {
+  // Remove the comments
+  $('form').remove();
+
+  // Remove the h5 post title - since we have extracted
+  // it already and using it for feed item title
+  $('h5').remove();
+
+  // Remove the subtitle - we've already extracted the
+  // permalink from the timestamp
+  $('[id^="feed_subtitle"]').remove();
+
+  return $.html();
+}
+
+function getTitle($) {
+  return $('h5')
+    .text()
+    .trim();
 }
 
 function createPost(html, dataset, meta) {
@@ -59,17 +68,15 @@ function createPost(html, dataset, meta) {
 
 function updatePost(post, html, dataset) {
   post.dataset = dataset;
-  post.html = html;
 
-  let $ = cheerio.load(post.html);
+  let $ = cheerio.load(html);
 
   post.profiles = getProfiles($);
   post.hovercards = getHovercards($);
-  post.external_links = getHasExternalLinks($);
   post.permalink = getPermalink($);
-  post.text = $.text();
+  post.title = getTitle($);
 
-  // console.log(JSON.stringify(post.hovercards));
+  post.html = getHtml($);
 
   return post;
 }

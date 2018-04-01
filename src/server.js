@@ -1,5 +1,5 @@
-const { getFeedXml } = require('./daemon');
-const http = require('http');
+let { getFeedXml } = require('./daemon');
+let http = require('http');
 
 let server = http.createServer((req, res) => {
   console.log(req.url);

@@ -1,16 +1,19 @@
-const puppeteer = require('puppeteer');
-const borer = require('./borer');
-const posts = require('./posts');
-const { xmlFromPosts } = require('./feed');
+let puppeteer = require('puppeteer');
+let borer = require('./borer');
+let posts = require('./posts');
+let { xmlFromPosts } = require('./feed');
+
+let browser;
 
 (async () => {
-  console.log('Starting daemon...');
   await posts.init();
+
+  browser = await puppeteer.launch({ headless: true });
 
   // Every 5 minutes, browse facebook
   (async function start() {
     console.log('Boring...');
-    let browser = await puppeteer.launch({ headless: true });
+
     let page = await browser.newPage();
 
     // This knows it is complete by watching network requests,
@@ -24,9 +27,11 @@ const { xmlFromPosts } = require('./feed');
     let newPosts = await borer.bore(page);
     posts.add(newPosts);
 
-    browser.close();
+    page.close();
 
-    setTimeout(start, 30000);
+    console.log('Sleeping...');
+
+    setTimeout(start, 300000);
   }());
 })();
 
@@ -35,6 +40,7 @@ function getFeedXml() {
 }
 
 function finish() {
+  browser.close();
   posts.finish();
   process.exit();
 }
